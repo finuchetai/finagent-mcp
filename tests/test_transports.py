@@ -151,7 +151,9 @@ class ArchiveSafetyTests(unittest.TestCase):
             for name in ['src/finance_mcp/code.py','README.md','deploy/remote.env.example',
                          'deploy/remote.env','src/finance_mcp/.local.env','src/finance_mcp/.env',
                          'exports/client.csv','generated-plugins/secret.json','.venv/private.txt',
-                         'credentials.json','src/finance_mcp/__pycache__/cached.pyc']:
+                         'credentials.json','src/finance_mcp/token.json',
+                         'examples/client_credentials.json','docs/client_secret_local.json',
+                         'src/finance_mcp/__pycache__/cached.pyc']:
                 f=root/name;f.parent.mkdir(parents=True,exist_ok=True);f.write_text('synthetic sentinel')
             files={str(f.relative_to(root)) for f in public_source_files(root)}
             self.assertEqual(files,{'src/finance_mcp/code.py','README.md','deploy/remote.env.example'})

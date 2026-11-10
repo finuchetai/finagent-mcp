@@ -10,3 +10,9 @@ remote.env
 *.local.env
 exports/
 generated-plugins/
+
+# Google user grants and local app configuration
+*token*.json
+*credentials*.json
+*client_secret*.json
+google-oauth-client.json

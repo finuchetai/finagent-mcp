@@ -3,6 +3,7 @@ from dataclasses import asdict
 import argparse
 from decimal import Decimal
 import json
+from threading import RLock
 
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
@@ -20,14 +21,16 @@ def encode(value) -> str:
 
 def create_server(adapter: FinanceAdapter, **server_options) -> MCPServer:
     service = FinanceService(adapter)
+    source_lock = RLock()
     server = MCPServer(name="open-finance", version=__version__,
                        instructions=adapter.passport(), **server_options)
     ro = ToolAnnotations(readOnlyHint=True, destructiveHint=False,
-                         idempotentHint=True, openWorldHint=False)
+                         idempotentHint=True, openWorldHint=bool(getattr(adapter, "refresh_before_report", False)))
 
     def checked(fn, *args):
         try:
-            return fn(*args)
+            with source_lock:
+                return fn(*args)
         except ContractError as exc:
             raise ToolError(str(exc)) from None
 
@@ -41,8 +44,14 @@ def create_server(adapter: FinanceAdapter, **server_options) -> MCPServer:
         """List periods, closed/open state and available reports. Open periods cannot be queried."""
         return encode({"contract_version": CONTRACT_VERSION, "periods": checked(service.periods)})
 
+    def current_reports(kind, months):
+        # Sheets must never silently answer a fresh request with an old snapshot.
+        if getattr(adapter, "refresh_before_report", False):
+            adapter.refresh()
+        return service.reports(kind, months)
+
     def output(kind, months):
-        return encode({"contract_version": CONTRACT_VERSION, "reports": checked(service.reports, kind, months)})
+        return encode({"contract_version": CONTRACT_VERSION, "reports": checked(current_reports, kind, months)})
 
     @server.tool(annotations=ro, structured_output=False)
     def get_pnl(months: list[str]) -> str:
@@ -63,6 +72,15 @@ def create_server(adapter: FinanceAdapter, **server_options) -> MCPServer:
     def get_month_notes(month: str) -> str:
         """Methodological notes for a single closed YYYY-MM period."""
         return checked(service.notes, month)
+
+    if callable(getattr(adapter, "refresh", None)):
+        @server.tool(annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False,
+                                                idempotentHint=False, openWorldHint=True), structured_output=False)
+        def refresh_source() -> str:
+            """Re-read the approved Google spreadsheet. Changes only the in-memory snapshot, never source cells.
+            A failure keeps the previous snapshot; disclose its age and do not claim data is current.
+            """
+            return encode(checked(adapter.refresh))
 
     return server
 

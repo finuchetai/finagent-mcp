@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "open-finance-mcp"
-version = "0.4.0"
+version = "0.6.0"
 description = "Standalone read-only financial MCP adapter demo"
 requires-python = ">=3.11"
 dependencies = ["mcp==2.2.0"]
@@ -14,11 +14,13 @@ license = {file = "LICENSE"}
 
 [project.optional-dependencies]
 remote = ["PyJWT[crypto]>=2.10,<3", "uvicorn>=0.31"]
+sheets = ["google-auth[requests]>=2.38,<3", "google-auth-oauthlib>=1.2,<2", "keyring>=25,<26"]
 files = ["openpyxl==3.1.5"]
 postgres = ["psycopg[binary]==3.3.4"]
 
 [project.scripts]
 open-finance-mcp = "finance_mcp.server:main"
+finance-mcp-google = "finance_mcp.google_oauth:main"
 finance-mcp-doctor = "finance_mcp.diagnostics:main"
 
 [tool.setuptools.packages.find]
@@ -29,4 +31,4 @@ Homepage = "https://finuchetai.ru/?utm_source=github&utm_medium=opensource&utm_c
 Repository = "https://github.com/finuchetai/finagent-mcp"
 
 [tool.setuptools.package-data]
-finance_mcp = ["resources/*.md", "resources/*.svg"]
+finance_mcp = ["resources/*.md", "resources/*.svg", "resources/google-oauth-client.json"]

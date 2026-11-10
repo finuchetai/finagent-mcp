@@ -30,7 +30,7 @@ def read_config(path):
 
 
 def validate_config(config):
-    allowed = {"version", "adapter", "client_id", "passport", "decimal_separator", "max_rows", "tables", "schema", "dsn_env", "article_registry"}
+    allowed = {"version", "adapter", "client_id", "passport", "decimal_separator", "max_rows", "tables", "schema", "dsn_env", "article_registry", "spreadsheet_id", "credentials_env", "oauth_profile"}
     if set(config) - allowed:
         raise ContractError("Неизвестное поле конфигурации; SQL и DSN задавать в JSON нельзя")
     if type(config.get("max_rows", 100000)) is not int or not 1 <= config.get("max_rows", 100000) <= 1000000:
@@ -41,7 +41,7 @@ def validate_config(config):
     for name, spec in config["tables"].items():
         if not isinstance(spec, dict):
             raise ContractError("Описание таблицы должно быть объектом")
-        if set(spec) - {"file", "sheet", "delimiter", "columns", "relation"}:
+        if set(spec) - {"file", "sheet", "delimiter", "columns", "relation", "range", "wide"}:
             raise ContractError("Неизвестное поле таблицы; разрешены только пути, имена и карта колонок")
         column_map(name, spec)
 
@@ -70,4 +70,7 @@ def load_adapter(path):
     if config.get("adapter") == "postgres":
         from .postgres_adapter import PostgresAdapter
         return PostgresAdapter(config, base)
-    raise ContractError("Неизвестный адаптер: нужны csv, xlsx или postgres")
+    if config.get("adapter") == "google_sheets":
+        from .google_sheets_adapter import GoogleSheetsAdapter
+        return GoogleSheetsAdapter(config, base)
+    raise ContractError("Неизвестный адаптер: нужны csv, xlsx, postgres или google_sheets")
