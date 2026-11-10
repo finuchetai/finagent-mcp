@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "adapter": "postgres",
+  "client_id": "lipa",
+  "passport": "passport.md",
+  "dsn_env": "FINANCE_MCP_DSN",
+  "schema": "finance_export",
+  "tables": {
+    "periods": {
+      "relation": "periods"
+    },
+    "reports": {
+      "relation": "reports"
+    },
+    "rows": {
+      "relation": "rows"
+    },
+    "notes": {
+      "relation": "notes"
+    }
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "adapter": "csv",
+  "client_id": "lipa",
+  "passport": "passport.md",
+  "decimal_separator": ",",
+  "tables": {
+    "periods": {
+      "file": "periods.csv",
+      "columns": {
+        "client_id": "client",
+        "month": "period",
+        "closed": "is_closed"
+      }
+    },
+    "reports": {
+      "file": "reports.csv"
+    },
+    "rows": {
+      "file": "rows.csv",
+      "delimiter": ";",
+      "columns": {
+        "client_id": "Клиент",
+        "month": "Месяц",
+        "kind": "Отчёт",
+        "code": "Код",
+        "label": "Статья",
+        "dimension": "Точка",
+        "amount": "Сумма",
+        "status": "Статус"
+      }
+    },
+    "notes": {
+      "file": "notes.csv"
+    }
+  }
+}

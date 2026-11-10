@@ -1,0 +1,8 @@
+client_id,month,kind,currency,source,as_of,complete
+lipa,2025-02,cashflow,RUB,Учебный экспорт Липа v1,2025-05-07T10:00:00+03:00,true
+lipa,2025-03,pnl,RUB,Учебный экспорт Липа v1,2025-05-07T10:00:00+03:00,true
+lipa,2025-03,cashflow,RUB,Учебный экспорт Липа v1,2025-05-07T10:00:00+03:00,true
+lipa,2025-03,balances,RUB,Учебный экспорт Липа v1,2025-05-07T10:00:00+03:00,true
+lipa,2025-04,pnl,RUB,Учебный экспорт Липа v1,2025-05-07T10:00:00+03:00,false
+lipa,2025-04,cashflow,RUB,Учебный экспорт Липа v1,2025-05-07T10:00:00+03:00,true
+lipa,2025-04,balances,RUB,Учебный экспорт Липа v1,2025-05-07T10:00:00+03:00,true

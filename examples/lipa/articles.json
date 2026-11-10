@@ -1,0 +1,123 @@
+{
+  "version": 1,
+  "client_id": "lipa",
+  "entries": [
+    {
+      "kind": "balances",
+      "code": "closing",
+      "source_ids": [],
+      "labels": [
+        "Конец"
+      ],
+      "approved_by": "Учебный пример; не согласование реального клиента"
+    },
+    {
+      "kind": "balances",
+      "code": "movement",
+      "source_ids": [],
+      "labels": [
+        "Движение"
+      ],
+      "approved_by": "Учебный пример; не согласование реального клиента"
+    },
+    {
+      "kind": "balances",
+      "code": "opening",
+      "source_ids": [],
+      "labels": [
+        "Начало"
+      ],
+      "approved_by": "Учебный пример; не согласование реального клиента"
+    },
+    {
+      "kind": "cashflow",
+      "code": "loan",
+      "source_ids": [],
+      "labels": [
+        "Заём"
+      ],
+      "approved_by": "Учебный пример; не согласование реального клиента"
+    },
+    {
+      "kind": "cashflow",
+      "code": "net_flow",
+      "source_ids": [],
+      "labels": [
+        "Чистый поток"
+      ],
+      "approved_by": "Учебный пример; не согласование реального клиента"
+    },
+    {
+      "kind": "cashflow",
+      "code": "other",
+      "source_ids": [],
+      "labels": [
+        "Прочее"
+      ],
+      "approved_by": "Учебный пример; не согласование реального клиента"
+    },
+    {
+      "kind": "cashflow",
+      "code": "payments",
+      "source_ids": [],
+      "labels": [
+        "Выплаты"
+      ],
+      "approved_by": "Учебный пример; не согласование реального клиента"
+    },
+    {
+      "kind": "cashflow",
+      "code": "receipts",
+      "source_ids": [],
+      "labels": [
+        "Оплаты клиентов"
+      ],
+      "approved_by": "Учебный пример; не согласование реального клиента"
+    },
+    {
+      "kind": "pnl",
+      "code": "cost",
+      "source_ids": [],
+      "labels": [
+        "Материалы и аренда"
+      ],
+      "approved_by": "Учебный пример; не согласование реального клиента"
+    },
+    {
+      "kind": "pnl",
+      "code": "depreciation",
+      "source_ids": [],
+      "labels": [
+        "Амортизация"
+      ],
+      "approved_by": "Учебный пример; не согласование реального клиента"
+    },
+    {
+      "kind": "pnl",
+      "code": "profit",
+      "source_ids": [],
+      "labels": [
+        "Прибыль"
+      ],
+      "approved_by": "Учебный пример; не согласование реального клиента"
+    },
+    {
+      "kind": "pnl",
+      "code": "revenue",
+      "source_ids": [],
+      "labels": [
+        "Работы"
+      ],
+      "approved_by": "Учебный пример; не согласование реального клиента"
+    },
+    {
+      "kind": "pnl",
+      "code": "vat",
+      "source_ids": [],
+      "labels": [
+        "НДС"
+      ],
+      "approved_by": "Учебный пример; не согласование реального клиента"
+    }
+  ]
+}

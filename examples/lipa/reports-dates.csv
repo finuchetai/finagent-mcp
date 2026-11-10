@@ -1,0 +1,8 @@
+client_id,month,kind,currency,source,as_of,complete,received_at,as_of_status,source_time_raw
+lipa,2025-02,cashflow,RUB,Учебный экспорт Липа v1,2025-05-07T10:00:00+03:00,true,2025-05-08T12:00:00+03:00,confirmed,
+lipa,2025-03,pnl,RUB,Учебный экспорт Липа v1,2025-05-07T10:00:00+03:00,true,2025-05-08T12:00:00+03:00,confirmed,
+lipa,2025-03,cashflow,RUB,Учебный экспорт Липа v1,2025-05-07T10:00:00+03:00,true,2025-05-08T12:00:00+03:00,confirmed,
+lipa,2025-03,balances,RUB,Учебный экспорт Липа v1,2025-05-07T10:00:00+03:00,true,2025-05-08T12:00:00+03:00,confirmed,
+lipa,2025-04,pnl,RUB,Учебный экспорт Липа v1,,false,2025-05-08T12:00:00+03:00,unknown,07.05.2025 10:00; часовой пояс неизвестен
+lipa,2025-04,cashflow,RUB,Учебный экспорт Липа v1,2025-05-07T10:00:00+03:00,true,2025-05-08T12:00:00+03:00,confirmed,
+lipa,2025-04,balances,RUB,Учебный экспорт Липа v1,2025-05-07T10:00:00+03:00,true,2025-05-08T12:00:00+03:00,confirmed,

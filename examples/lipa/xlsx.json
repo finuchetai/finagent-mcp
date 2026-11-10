@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "adapter": "xlsx",
+  "client_id": "lipa",
+  "passport": "passport.md",
+  "decimal_separator": ",",
+  "tables": {
+    "periods": {
+      "file": "lipa.xlsx",
+      "columns": {
+        "client_id": "client",
+        "month": "period",
+        "closed": "is_closed"
+      },
+      "sheet": "periods"
+    },
+    "reports": {
+      "file": "lipa.xlsx",
+      "sheet": "reports"
+    },
+    "rows": {
+      "file": "lipa.xlsx",
+      "columns": {
+        "client_id": "Клиент",
+        "month": "Месяц",
+        "kind": "Отчёт",
+        "code": "Код",
+        "label": "Статья",
+        "dimension": "Точка",
+        "amount": "Сумма",
+        "status": "Статус"
+      },
+      "sheet": "rows"
+    },
+    "notes": {
+      "file": "lipa.xlsx",
+      "sheet": "notes"
+    }
+  }
+}

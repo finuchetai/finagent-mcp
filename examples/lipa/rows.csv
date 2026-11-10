@@ -1,0 +1,41 @@
+Клиент;Месяц;Отчёт;Код;Статья;Точка;Сумма;Статус
+lipa;2025-02;cashflow;other;Прочее;Север;0,00;value
+lipa;2025-03;pnl;revenue;Работы;Север;8743,21;value
+lipa;2025-03;pnl;revenue;Работы;Юг;6020,34;value
+lipa;2025-03;pnl;cost;Материалы и аренда;Север;-4020,11;value
+lipa;2025-03;pnl;cost;Материалы и аренда;Юг;-3500,24;value
+lipa;2025-03;pnl;profit;Прибыль;Север;4723,10;value
+lipa;2025-03;pnl;profit;Прибыль;Юг;2520,10;value
+lipa;2025-04;pnl;revenue;Работы;Север;9010,20;value
+lipa;2025-04;pnl;revenue;Работы;Юг;7010,50;value
+lipa;2025-04;pnl;cost;Материалы и аренда;Север;-4000,10;value
+lipa;2025-04;pnl;cost;Материалы и аренда;Юг;-3500,40;value
+lipa;2025-04;pnl;profit;Прибыль;Север;5010,10;value
+lipa;2025-04;pnl;profit;Прибыль;Юг;3510,10;value
+lipa;2025-04;pnl;depreciation;Амортизация;Север;;missing
+lipa;2025-04;pnl;vat;НДС;Юг;;not_applicable
+lipa;2025-03;cashflow;receipts;Оплаты клиентов;Север;8000,10;value
+lipa;2025-03;cashflow;receipts;Оплаты клиентов;Юг;6500,20;value
+lipa;2025-03;cashflow;payments;Выплаты;Север;-3900,05;value
+lipa;2025-03;cashflow;payments;Выплаты;Юг;-3400,15;value
+lipa;2025-03;cashflow;net_flow;Чистый поток;Север;4100,05;value
+lipa;2025-03;cashflow;net_flow;Чистый поток;Юг;3100,05;value
+lipa;2025-04;cashflow;receipts;Оплаты клиентов;Север;9200,25;value
+lipa;2025-04;cashflow;receipts;Оплаты клиентов;Юг;6900,10;value
+lipa;2025-04;cashflow;payments;Выплаты;Север;-4200,10;value
+lipa;2025-04;cashflow;payments;Выплаты;Юг;-3300,05;value
+lipa;2025-04;cashflow;loan;Заём;Север;1000,00;value
+lipa;2025-04;cashflow;net_flow;Чистый поток;Север;6000,15;value
+lipa;2025-04;cashflow;net_flow;Чистый поток;Юг;3600,05;value
+lipa;2025-03;balances;opening;Начало;Север;1200,10;value
+lipa;2025-03;balances;opening;Начало;Юг;800,20;value
+lipa;2025-03;balances;movement;Движение;Север;4100,05;value
+lipa;2025-03;balances;movement;Движение;Юг;3100,05;value
+lipa;2025-03;balances;closing;Конец;Север;5300,15;value
+lipa;2025-03;balances;closing;Конец;Юг;3900,25;value
+lipa;2025-04;balances;opening;Начало;Север;5300,15;value
+lipa;2025-04;balances;opening;Начало;Юг;3900,25;value
+lipa;2025-04;balances;movement;Движение;Север;6000,15;value
+lipa;2025-04;balances;movement;Движение;Юг;3600,05;value
+lipa;2025-04;balances;closing;Конец;Север;11300,30;value
+lipa;2025-04;balances;closing;Конец;Юг;7500,30;value
