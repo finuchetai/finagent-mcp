@@ -1,0 +1,10 @@
+.git
+.venv
+**/__pycache__
+*.egg-info
+build
+dist
+exports
+generated-plugins
+**/remote.env
+**/*.local.env

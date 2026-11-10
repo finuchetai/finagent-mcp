@@ -5,3 +5,8 @@ __pycache__/
 build/
 dist/
 .env
+
+remote.env
+*.local.env
+exports/
+generated-plugins/

@@ -9,6 +9,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 from .contract import CONTRACT_VERSION, ContractError, FinanceAdapter, FinanceService
 from .demo import DemoAdapter
+from . import __version__
 
 
 def encode(value) -> str:
@@ -17,10 +18,10 @@ def encode(value) -> str:
                       default=lambda v: str(v) if isinstance(v, Decimal) else asdict(v))
 
 
-def create_server(adapter: FinanceAdapter) -> MCPServer:
+def create_server(adapter: FinanceAdapter, **server_options) -> MCPServer:
     service = FinanceService(adapter)
-    server = MCPServer(name="open-finance", version="0.3.0",
-                       instructions=adapter.passport())
+    server = MCPServer(name="open-finance", version=__version__,
+                       instructions=adapter.passport(), **server_options)
     ro = ToolAnnotations(readOnlyHint=True, destructiveHint=False,
                          idempotentHint=True, openWorldHint=False)
 
@@ -67,9 +68,12 @@ def create_server(adapter: FinanceAdapter) -> MCPServer:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Read-only finance MCP (stdio)")
+    parser = argparse.ArgumentParser(description="Read-only finance MCP (stdio or authenticated Streamable HTTP)")
     parser.add_argument("--config", help="JSON source configuration; defaults to synthetic demo")
     parser.add_argument("--check", action="store_true", help="Validate snapshot and print counts, then exit")
+    parser.add_argument("--transport", choices=["stdio", "streamable-http"], default="stdio")
+    parser.add_argument("--host", default="127.0.0.1", help="HTTP bind address; defaults to loopback")
+    parser.add_argument("--port", type=int, default=8000, help="HTTP port behind an HTTPS proxy")
     args = parser.parse_args()
     try:
         if args.config:
@@ -88,6 +92,9 @@ def main() -> None:
             if unknown:
                 result["warnings"] = ["Неизвестна дата состояния учёта: " + ", ".join(unknown)]
             print(encode(result))
+        elif args.transport == "streamable-http":
+            from .remote import serve_http
+            serve_http(adapter, host=args.host, port=args.port)
         else:
             create_server(adapter).run(transport="stdio")
     except ContractError as exc:

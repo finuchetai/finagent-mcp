@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "open-finance-mcp"
-version = "0.3.0"
+version = "0.4.0"
 description = "Standalone read-only financial MCP adapter demo"
 requires-python = ">=3.11"
 dependencies = ["mcp==2.2.0"]
@@ -13,6 +13,7 @@ authors = [{name = "Самойлова Татьяна"}]
 license = {file = "LICENSE"}
 
 [project.optional-dependencies]
+remote = ["PyJWT[crypto]>=2.10,<3", "uvicorn>=0.31"]
 files = ["openpyxl==3.1.5"]
 postgres = ["psycopg[binary]==3.3.4"]
 
@@ -26,3 +27,6 @@ where = ["src"]
 [project.urls]
 Homepage = "https://finuchetai.ru/?utm_source=github&utm_medium=opensource&utm_campaign=finance_mcp"
 Repository = "https://github.com/finuchetai/finagent-mcp"
+
+[tool.setuptools.package-data]
+finance_mcp = ["resources/*.md", "resources/*.svg"]

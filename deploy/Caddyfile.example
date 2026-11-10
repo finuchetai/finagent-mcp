@@ -1,0 +1,9 @@
+# Merge only this host into the owner's approved proxy config; validate before reload.
+{$FINANCE_MCP_DOMAIN} {
+    handle /mcp* {
+        reverse_proxy 127.0.0.1:18040
+    }
+    handle /.well-known/oauth-protected-resource/mcp {
+        reverse_proxy 127.0.0.1:18040
+    }
+}
