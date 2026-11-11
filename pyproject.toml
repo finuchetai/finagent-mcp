@@ -21,6 +21,7 @@ postgres = ["psycopg[binary]==3.3.4"]
 [project.scripts]
 open-finance-mcp = "finance_mcp.server:main"
 finance-mcp-google = "finance_mcp.google_oauth:main"
+finance-mcp-connect = "finance_mcp.google_connect:main"
 finance-mcp-doctor = "finance_mcp.diagnostics:main"
 
 [tool.setuptools.packages.find]

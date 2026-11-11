@@ -155,7 +155,7 @@ class GoogleSheetsAdapter:
 
     def _wide(self, rows, spec, width):
         """Explicit reviewed map of a wide report, no inferred accounting or totals."""
-        if set(spec) != {'kind', 'header_row', 'label_column', 'months', 'entries'}:
+        if set(spec) - {'kind', 'header_row', 'label_column', 'months', 'entries', 'strict_rows'} or not {'kind', 'header_row', 'label_column', 'months', 'entries'} <= set(spec):
             raise ContractError('Нужна полная карта wide')
         def cell(row, column):
             if type(row) is not int or type(column) is not int or row < 0 or not 0 <= column < width:
@@ -164,6 +164,14 @@ class GoogleSheetsAdapter:
             if isinstance(value, str) and value in ERRORS:
                 raise ContractError('В выбранной ячейке Google Sheets ошибка')
             return value
+        if spec.get('strict_rows', False):
+            if spec['strict_rows'] is not True:
+                raise ContractError('strict_rows должен быть true')
+            mapped = {entry['row'] for entry in spec['entries']}
+            actual = {i for i, row in enumerate(rows) if i > spec['header_row']
+                      and any(value not in ('', None) for value in row)}
+            if mapped != actual:
+                raise ContractError('Изменился состав строк отчёта; нужна повторная проверка карты')
         result, used = [], set()
         for month, mapping in spec['months'].items():
             if set(mapping) != {'column', 'header'} or cell(spec['header_row'], mapping['column']) != mapping['header']:
