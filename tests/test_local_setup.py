@@ -89,8 +89,17 @@ class SetupTests(unittest.TestCase):
         self.assertEqual(sum(c[2] == "add" for c in self.cli.calls), before_adds)
     def test_collision_and_disabled_server_are_not_overwritten(self):
         self.register()
-        for mutation in [lambda s: s.replace(str(Path(sys.executable).absolute()), "other-python"),
-                         lambda s: s.replace("startup_timeout_sec = 90", "enabled = false" + chr(10) + "startup_timeout_sec = 90")]:
+        def changed_command(source):
+            import tomlkit
+            doc = tomlkit.parse(source)
+            doc["mcp_servers"]["finagent-test"]["command"] = "other-python"
+            return tomlkit.dumps(doc)
+        def disabled(source):
+            import tomlkit
+            doc = tomlkit.parse(source)
+            doc["mcp_servers"]["finagent-test"]["enabled"] = False
+            return tomlkit.dumps(doc)
+        for mutation in [changed_command, disabled]:
             baseline = self.settings.read_text()
             self.settings.write_text(mutation(baseline))
             before = self.settings.read_bytes()
