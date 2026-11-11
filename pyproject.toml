@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "open-finance-mcp"
-version = "0.6.0"
+version = "0.7.0rc1"
 description = "Standalone read-only financial MCP adapter demo"
 requires-python = ">=3.11"
 dependencies = ["mcp==2.2.0"]
@@ -13,6 +13,7 @@ authors = [{name = "Самойлова Татьяна"}]
 license = {file = "LICENSE"}
 
 [project.optional-dependencies]
+local = ["tomlkit>=0.13,<1"]
 remote = ["PyJWT[crypto]>=2.10,<3", "uvicorn>=0.31"]
 sheets = ["google-auth[requests]>=2.38,<3", "google-auth-oauthlib>=1.2,<2", "keyring>=25,<26"]
 files = ["openpyxl==3.1.5"]
@@ -22,6 +23,7 @@ postgres = ["psycopg[binary]==3.3.4"]
 open-finance-mcp = "finance_mcp.server:main"
 finance-mcp-google = "finance_mcp.google_oauth:main"
 finance-mcp-connect = "finance_mcp.google_connect:main"
+finance-mcp-setup = "finance_mcp.local_setup:main"
 finance-mcp-doctor = "finance_mcp.diagnostics:main"
 
 [tool.setuptools.packages.find]

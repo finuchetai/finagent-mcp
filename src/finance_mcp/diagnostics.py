@@ -79,7 +79,7 @@ def _kill_tree(process):
                 process.kill()
 
 
-def probe_stdio(*, config=None, timeout=15, server_command=None):
+def probe_stdio(*, config=None, timeout=15, server_command=None, financial=False):
     if not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or not 1 <= timeout <= 60:
         raise ValueError("timeout must be between 1 and 60 seconds")
     if server_command is None:
@@ -89,7 +89,7 @@ def probe_stdio(*, config=None, timeout=15, server_command=None):
     # Own the server process group directly. The SDK's stdio transport creates a
     # separate kill scope, which would escape a watchdog around an SDK worker.
     process = subprocess.Popen(server_command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                               stderr=subprocess.DEVNULL, text=True,
+                               stderr=subprocess.DEVNULL, text=True, encoding="utf-8",
                                start_new_session=os.name == "posix")
     inbox = queue.Queue(maxsize=16)
     stop = threading.Event()
@@ -144,10 +144,36 @@ def probe_stdio(*, config=None, timeout=15, server_command=None):
         send({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}})
         tools = response(2).get("tools")
         required = {"get_passport", "list_months", "get_pnl", "get_cashflow", "get_balances", "get_month_notes"}
-        if not isinstance(tools, list) or len(tools) != 6 or {t.get("name") for t in tools if isinstance(t, dict)} != required:
+        names = {t.get("name") for t in tools if isinstance(t, dict)} if isinstance(tools, list) else set()
+        if names not in (required, required | {"refresh_source"}) or len(tools) != len(names):
             raise ValueError("unexpected tool set")
-        return {"ok": True, "phase": "complete", "tools": len(tools)}
-    except (TimeoutError, OSError, ValueError):
+        result = {"ok": True, "phase": "complete", "tools": len(tools)}
+        if financial:
+            def call(request_id, name, arguments):
+                send({"jsonrpc": "2.0", "id": request_id, "method": "tools/call",
+                      "params": {"name": name, "arguments": arguments}})
+                value = response(request_id)
+                if value.get("isError") or not value.get("content"):
+                    raise ValueError("financial tool failed")
+                return value["content"][0]["text"]
+            phase = "get_passport"
+            if not call(3, "get_passport", {}).strip():
+                raise ValueError("empty passport")
+            phase = "list_months"
+            periods = json.loads(call(4, "list_months", {}))["periods"]
+            period = next((p for p in periods if p["closed"] and p["reports"]), None)
+            if period is None:
+                raise ValueError("no approved period")
+            kind = period["reports"][0]
+            if kind not in {"pnl", "cashflow", "balances"}:
+                raise ValueError("invalid report")
+            phase = "get_" + kind
+            reports = json.loads(call(5, phase, {"months": [period["month"]]}))["reports"]
+            if len(reports) != 1 or not reports[0]["rows"] or reports[0]["month"] != period["month"] or reports[0]["kind"] != kind:
+                raise ValueError("invalid financial answer")
+            result["financial"] = reports[0]
+        return result
+    except (TimeoutError, OSError, ValueError, KeyError, TypeError):
         timed_out = time.monotonic() >= deadline
         return {"ok": False, "phase": phase, "reason": "timeout" if timed_out else "process_error",
                 "cause": "undetermined", "raw_stderr_included": False,
@@ -175,12 +201,13 @@ def main():
     env.add_argument("--postgres-share")
     stdio = sub.add_parser("stdio")
     stdio.add_argument("--config")
+    stdio.add_argument("--financial", action="store_true")
     stdio.add_argument("--timeout", type=float, default=15)
     args = parser.parse_args()
     try:
         result = (preflight(postgres_bin=args.postgres_bin, postgres_share=args.postgres_share,
                             packages=args.packages, network=args.network) if args.mode == "environment"
-                  else probe_stdio(config=args.config, timeout=args.timeout))
+                  else probe_stdio(config=args.config, timeout=args.timeout, financial=args.financial))
     except (ValueError, OSError):
         parser.exit(2, "Invalid diagnostic arguments or unavailable process execution\n")
     print(json.dumps(result, ensure_ascii=False))

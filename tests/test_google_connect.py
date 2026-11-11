@@ -61,7 +61,7 @@ class ConnectTests(unittest.TestCase):
     def connect(self, **changes):
         result = discover(LINK, self.http)
         options = dict(month="2026-10", kind="cashflow", currency="RUB", ready=True,
-                       destination=self.destination, oauth_profile="owner", session=self.http)
+                       destination=self.destination, oauth_profile="owner", session=self.http, units_confirmed=True)
         options.update(changes)
         return save_profile(result, result["candidates"][0], **options)
     def test_full_chain_saved_profile_reloaded_and_real_mcp(self):
@@ -144,9 +144,67 @@ class ConnectTests(unittest.TestCase):
         result = discover(LINK, self.http)
         self.assertEqual(result["candidates"], [])
         self.assertIn("плана", result["unsupported"][0]["reason"])
+    def test_numeric_date_headers_are_saved_as_json_numbers(self):
+        serial = (date(2026, 10, 1) - date(1899, 12, 30)).days
+        self.http.rows[0][2] = float(serial)
+        result = self.connect()
+        config = json.loads(Path(result["config"]).read_text())
+        self.assertEqual(config["tables"]["rows"]["wide"]["months"]["2026-10"]["header"], serial)
+        self.assertEqual(result["first_analysis"]["rows"][0]["amount"], "200.25")
+    def test_single_column_notes_do_not_block_report(self):
+        self.http.metadata["sheets"].append({"properties": {
+            "sheetId": 1, "title": "Примечания", "sheetType": "GRID",
+            "gridProperties": {"rowCount": 100, "columnCount": 1}}})
+        result = discover(LINK, self.http)
+        self.assertEqual(len(result["candidates"]), 1)
+        self.assertEqual(result["unsupported"][0]["title"], "Примечания")
+    def test_local_directory_profiles_cannot_traverse(self):
+        for profile in [".", "..", "CON", "owner."]:
+            with self.subTest(profile=profile), self.assertRaises(SystemExit):
+                main(["--home", self.temp.name, "--profile", profile, "--url", LINK])
+    def test_scaled_and_nonmonetary_reports_are_not_exposed_as_currency(self):
+        baseline = deepcopy(self.http.rows)
+        for label in ["Рентабельность,%", "Количество, шт.", "Маржинальность", "Численность, чел."]:
+            self.http.rows = deepcopy(baseline)
+            self.http.rows.append([label, 0.15, 0.2])
+            self.assertFalse(discover(LINK, self.http)["candidates"], label)
+        self.http.rows = baseline
+        self.http.metadata["sheets"][0]["properties"]["title"] = "ДДС, тыс. руб."
+        self.assertFalse(discover(LINK, self.http)["candidates"])
+    def test_large_grid_is_refused_even_if_returned_prefix_has_empty_tail(self):
+        self.http.metadata["sheets"][0]["properties"]["gridProperties"]["rowCount"] = 5001
+        result = discover(LINK, self.http)
+        self.assertFalse(result["candidates"])
+        self.assertIn("5000", result["unsupported"][0]["reason"])
+    def test_refresh_rejects_grid_growth_and_sheet_replacement(self):
+        result = self.connect()
+        config = json.loads(Path(result["config"]).read_text())
+        adapter = GoogleSheetsAdapter(config, self.destination, session=self.http)
+        original = adapter.report("cashflow", "2026-10")
+        props = self.http.metadata["sheets"][0]["properties"]
+        for change in ["rows", "columns", "identity"]:
+            baseline = deepcopy(props)
+            if change == "rows": props["gridProperties"]["rowCount"] += 10
+            if change == "columns": props["gridProperties"]["columnCount"] += 1
+            if change == "identity": props["sheetId"] += 1
+            with self.subTest(change=change), self.assertRaises(ContractError):
+                adapter.refresh()
+            self.assertEqual(adapter.report("cashflow", "2026-10"), original)
+            props.clear()
+            props.update(baseline)
+    def test_changed_units_in_preamble_invalidate_saved_map(self):
+        self.http.rows.insert(0, ["Суммы в единицах валюты"])
+        result = self.connect()
+        config = json.loads(Path(result["config"]).read_text())
+        adapter = GoogleSheetsAdapter(config, self.destination, session=self.http)
+        original = adapter.report("cashflow", "2026-10")
+        self.http.rows[0][0] = "Суммы в тыс. руб."
+        with self.assertRaisesRegex(ContractError, "пояснения"):
+            adapter.refresh()
+        self.assertEqual(adapter.report("cashflow", "2026-10"), original)
     def test_selection_and_owner_confirmation_required(self):
         for changes in [dict(ready=False), dict(kind="netprofit"), dict(currency="руб"),
-                        dict(month="2026-12")]:
+                        dict(month="2026-12"), dict(units_confirmed=False)]:
             with self.subTest(changes=changes), self.assertRaises(ContractError):
                 self.connect(**changes)
             self.assertFalse(self.destination.exists())
@@ -170,7 +228,7 @@ class ConnectTests(unittest.TestCase):
         self.http.rows[1][2] = "#REF!"
         with self.assertRaises(ContractError):
             save_profile(found, found["candidates"][0], month="2026-10", kind="cashflow", currency="RUB",
-                         ready=True, destination=self.destination, oauth_profile="owner", session=self.http)
+                         ready=True, destination=self.destination, oauth_profile="owner", session=self.http, units_confirmed=True)
         self.assertFalse(self.destination.exists())
         self.assertEqual(list(Path(self.temp.name).iterdir()), [])
     def test_repeat_reuses_profile_and_refuses_different_book(self):
@@ -180,7 +238,7 @@ class ConnectTests(unittest.TestCase):
             self.connect()
         self.assertEqual(saved, (self.destination / "config.json").read_bytes())
         with patch("finance_mcp.google_oauth.authorized_oauth_session", return_value=self.http),              patch("builtins.input", side_effect=AssertionError("must not ask again")), patch("builtins.print") as out:
-            main(["--home", self.temp.name, "--url", LINK])
+            main(["--home", self.temp.name, "--url", LINK, "--json"])
             self.assertIn("reused", out.call_args[0][0])
         with self.assertRaises(SystemExit):
             main(["--home", self.temp.name, "--url", LINK.replace("synthetic-book", "other")])

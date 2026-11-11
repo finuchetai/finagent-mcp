@@ -82,6 +82,17 @@ class GoogleSheetsAdapter:
         else:
             from .google_oauth import authorized_oauth_session
             self._session = authorized_oauth_session(config.get('oauth_profile', 'default'))
+        self._grids = []
+        for spec in config["tables"].values():
+            grid = spec.get("wide", {}).get("grid")
+            if grid is not None:
+                if (not isinstance(grid, dict) or set(grid) != {"sheet_id", "title", "rows", "columns"}
+                        or type(grid["sheet_id"]) is not int or grid["sheet_id"] < 0
+                        or not isinstance(grid["title"], str) or not grid["title"]
+                        or type(grid["rows"]) is not int or not 2 <= grid["rows"] <= 5000
+                        or type(grid["columns"]) is not int or not 1 <= grid["columns"] <= 100):
+                    raise ContractError("Некорректная граница Google-листа")
+                self._grids.append(grid)
         self._lock = RLock()
         self._snapshot = None
         self.refresh()
@@ -109,9 +120,39 @@ class GoogleSheetsAdapter:
             raise ContractError('Некорректный ответ Google Sheets')
         return payload['valueRanges']
 
+    def _check_grid(self):
+        if not self._grids:
+            return
+        try:
+            url = self._url.removesuffix("/values:batchGet")
+            with self._session.get(url, params={"fields": "sheets(properties(sheetId,title,gridProperties))"},
+                                   timeout=30, stream=True, allow_redirects=False) as response:
+                if response.status_code != 200:
+                    raise ContractError("Не удалось проверить границы Google-листа; снимок не обновлён")
+                chunks, size = [], 0
+                for chunk in response.iter_content(65536):
+                    size += len(chunk)
+                    if size > MAX_BYTES:
+                        raise ContractError("Превышен лимит метаданных Google")
+                    chunks.append(chunk)
+                payload = json.loads(b"".join(chunks))
+            sheets = {s["properties"]["sheetId"]: s["properties"] for s in payload["sheets"]}
+            for expected in self._grids:
+                actual = sheets.get(expected["sheet_id"])
+                if (actual is None or actual["title"] != expected["title"]
+                        or actual["gridProperties"]["rowCount"] != expected["rows"]
+                        or actual["gridProperties"]["columnCount"] != expected["columns"]):
+                    raise ContractError("Изменилась граница или идентичность листа; нужна повторная проверка карты")
+        except ContractError:
+            raise
+        except Exception:
+            raise ContractError("Не удалось проверить границы Google-листа; снимок не обновлён") from None
+
     def refresh(self):
         with self._lock:
+            self._check_grid()
             first, second = self._read(), self._read()
+            self._check_grid()
             if first != second:
                 raise ContractError('Таблица меняется во время чтения; повторите обновление после правок')
             tables = {}
@@ -155,7 +196,7 @@ class GoogleSheetsAdapter:
 
     def _wide(self, rows, spec, width):
         """Explicit reviewed map of a wide report, no inferred accounting or totals."""
-        if set(spec) - {'kind', 'header_row', 'label_column', 'months', 'entries', 'strict_rows'} or not {'kind', 'header_row', 'label_column', 'months', 'entries'} <= set(spec):
+        if set(spec) - {'kind', 'header_row', 'label_column', 'months', 'entries', 'strict_rows', 'grid', 'layout_signature'} or not {'kind', 'header_row', 'label_column', 'months', 'entries'} <= set(spec):
             raise ContractError('Нужна полная карта wide')
         def cell(row, column):
             if type(row) is not int or type(column) is not int or row < 0 or not 0 <= column < width:
@@ -164,6 +205,10 @@ class GoogleSheetsAdapter:
             if isinstance(value, str) and value in ERRORS:
                 raise ContractError('В выбранной ячейке Google Sheets ошибка')
             return value
+        if "layout_signature" in spec:
+            actual_layout = json.dumps(rows[:spec["header_row"]+1], ensure_ascii=False, default=str)
+            if actual_layout != spec["layout_signature"]:
+                raise ContractError("Изменились заголовки или пояснения единиц; нужна повторная проверка карты")
         if spec.get('strict_rows', False):
             if spec['strict_rows'] is not True:
                 raise ContractError('strict_rows должен быть true')

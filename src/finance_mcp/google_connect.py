@@ -18,7 +18,7 @@ from urllib.parse import urlsplit
 
 from .contract import ContractError, FinanceService, REPORTS, validate_month
 from .google_oauth import authorized_oauth_session, login, profile_name, TokenStore
-from .google_sheets_adapter import GoogleSheetsAdapter, MAX_BYTES, ERRORS
+from .google_sheets_adapter import GoogleSheetsAdapter, MAX_BYTES
 from .snapshot import FIELDS, money
 
 API = "https://sheets.googleapis.com/v4/spreadsheets/"
@@ -151,6 +151,9 @@ def candidate(props, rows, height, width):
     if any(re.search(r"план|plan|budget|прогноз|forecast|variance|отклонен", str(v), re.I)
            for row in rows[:header + 1] for v in row):
         raise ContractError("Обнаружен план/прогноз: этот формат автоматически не подключается")
+    unit_context = " ".join([props["title"]] + [str(v) for row in rows[:header+1] for v in row])
+    if re.search(r"(?i)(тыс[.]?|тысяч|млн|миллион|thousand|million)", unit_context):
+        raise ContractError("Обнаружен масштаб в тысячах/миллионах; автоматически как единицы валюты не подключаем")
     columns = {c for c, _, _ in months}
     entries, labels = [], set()
     for index in range(header + 1, len(rows)):
@@ -161,6 +164,8 @@ def candidate(props, rows, height, width):
         values = [row[c] if c < len(row) else "" for c in columns]
         if not isinstance(label, str) or not label.strip():
             raise ContractError("Найдена строка без названия; нельзя молча исключить её из отчёта")
+        if re.search(r"(?i)(%|процент|рентабельност|маржинальност|количеств|кол-во|(?:^|[^а-яa-z])(?:шт[.]?|чел[.]?|units|headcount)(?:$|[^а-яa-z]))", label):
+            raise ContractError("В отчёте есть проценты или количества; нельзя выдавать их как денежные суммы")
         if label != label.strip() or label in labels:
             raise ContractError("Названия строк должны быть уникальны и без крайних пробелов")
         for i, value in enumerate(row):
@@ -178,7 +183,9 @@ def candidate(props, rows, height, width):
     return {"sheet_id": props["sheetId"], "title": props["title"],
             "range": "'" + props["title"].replace("'", "''") + f"'!A1:{col_name(width)}{height}",
             "kind": detect_kind(props["title"]), "header_row": header,
-            "months": {m: {"column": c, "header": v} for c, m, v in months},
+            "grid": {"sheet_id": props["sheetId"], "title": props["title"], "rows": height, "columns": width},
+            "layout_signature": json.dumps(rows[:header+1], ensure_ascii=False, default=str),
+            "months": {m: {"column": c, "header": int(v) if isinstance(v, Decimal) else v} for c, m, v in months},
             "entries": entries}
 
 
@@ -191,15 +198,24 @@ def discover(link, session):
                   if s["properties"].get("sheetType", "GRID") == "GRID"]
         if not 1 <= len(sheets) <= 30:
             raise ContractError("Автоматическое подключение поддерживает от 1 до 30 листов")
-        ranges, limits = [], []
+        ranges, limits, readable, unsupported = [], [], [], []
         for sheet in sheets:
             grid = sheet["gridProperties"]
             height = min(grid["rowCount"], MAX_ROWS)
             width = min(grid["columnCount"], MAX_COLS)
+            if grid["rowCount"] > MAX_ROWS or grid["columnCount"] > MAX_COLS:
+                unsupported.append({"title": sheet["title"], "reason": "Лист превышает лимит 5000 строк или 100 колонок"})
+                continue
             if height < 2 or width < 2:
-                raise ContractError("Слишком маленький лист")
+                unsupported.append({"title": sheet["title"], "reason": "Нет таблицы с названиями и месяцами"})
+                continue
+            readable.append(sheet)
             ranges.append("'" + sheet["title"].replace("'", "''") + f"'!A1:{col_name(width)}{height}")
             limits.append((height, width))
+        sheets = readable
+        if not sheets:
+            return {"spreadsheet_id": sid, "title": meta["properties"]["title"],
+                    "candidates": [], "unsupported": unsupported}
         params = [("ranges", r) for r in ranges] + [
             ("valueRenderOption", "UNFORMATTED_VALUE"), ("dateTimeRenderOption", "SERIAL_NUMBER")]
         first = json_get(session, API + sid + "/values:batchGet", params)
@@ -209,7 +225,7 @@ def discover(link, session):
         blocks = first["valueRanges"]
         if len(blocks) != len(sheets):
             raise ContractError("Google вернул не все запрошенные листы")
-        found, unsupported = [], []
+        found = []
         for props, block, (height, width) in zip(sheets, blocks, limits):
             # Do not silently truncate a wide sheet.
             if props["gridProperties"]["columnCount"] > MAX_COLS:
@@ -245,9 +261,11 @@ def first_analysis(adapter, month, kind):
 
 
 def save_profile(discovery, selected, *, month, kind, currency, ready, destination, oauth_profile,
-                 session, python=None):
+                 session, python=None, units_confirmed=False):
     validate_month(month)
     profile_name(oauth_profile)
+    if units_confirmed is not True:
+        raise ContractError("Подтвердите: все строки — денежные суммы в единицах выбранной валюты, без процентов и количеств")
     if ready is not True:
         raise ContractError("Нужно подтверждение владельца: выбранный месяц готов для анализа")
     if kind not in REPORTS or not re.fullmatch(r"[A-Z]{3}", currency or ""):
@@ -282,6 +300,7 @@ def save_profile(discovery, selected, *, month, kind, currency, ready, destinati
             config["tables"][name] = {"file": f"{name}.csv", "columns": {f: f for f in fields}}
         config["tables"]["rows"] = {"range": selected["range"], "wide": {
             "kind": kind, "header_row": selected["header_row"], "label_column": 0, "strict_rows": True,
+            "grid": selected["grid"], "layout_signature": selected["layout_signature"],
             "months": {month: selected["months"][month]}, "entries": selected["entries"]}}
         (staging / "passport.md").write_text(
             "# Финансовые данные владельца\nОдна согласованная Google-книга; только чтение.\n"
@@ -291,6 +310,8 @@ def save_profile(discovery, selected, *, month, kind, currency, ready, destinati
             "source_row — исходная строка, не признак слагаемого; итоги и детали не суммировать.\n"
             "Коды сохранены в карте; изменение названий/позиций требует новой проверки.\n",
             encoding="utf-8")
+        with (staging / "passport.md").open("a", encoding="utf-8") as f:
+            f.write(f"\nВладелец подтвердил: все строки — денежные суммы в единицах {currency}, без процентов, количеств и масштаба.\n")
         (staging / "config.json").write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
         # Real adapter performs a fresh read and validates saved metadata; compare ALL source rows.
         adapter = GoogleSheetsAdapter(config, staging, session=session)
@@ -313,15 +334,30 @@ def save_profile(discovery, selected, *, month, kind, currency, ready, destinati
         shutil.rmtree(staging)
 
 
-def main(argv=None):
+
+def render_analysis(analysis):
+    lines = [f"{KINDS[analysis['kind']]} за {analysis['month']} · {analysis['currency']}"]
+    for row in analysis["rows"][:8]:
+        value = row["amount"] if row["status"] == "value" else "нет значения"
+        lines.append(f"{row['label']}: {value}")
+    if len(analysis["rows"]) > 8:
+        lines.append(f"Показаны первые 8 из {len(analysis['rows'])} строк; остальные доступны в отчёте.")
+    lines += analysis["observations"]
+    return "\n".join(lines)
+
+def main(argv=None, *, emit_result=True):
     parser = argparse.ArgumentParser(description="Подключить Google-таблицу без ручной карты JSON")
     parser.add_argument("--profile", default="owner")
     parser.add_argument("--url")
     parser.add_argument("--app")
+    parser.add_argument("--json", action="store_true", help="Machine-readable result")
     parser.add_argument("--home", type=Path, default=Path.home() / ".finagent" / "profiles")
     args = parser.parse_args(argv)
     try:
         profile_name(args.profile)
+        if args.profile in {".", ".."} or args.profile.endswith(".") or args.profile.split(".")[0].upper() in {
+                "CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}:
+            raise ContractError("Выберите другое имя локального профиля")
         destination = args.home.absolute() / args.profile
         if destination.exists():
             from .sources import load_adapter, read_config
@@ -331,9 +367,11 @@ def main(argv=None):
                 raise ContractError("В профиле другая книга; выберите новый --profile")
             adapter = load_adapter(path)
             period = next(p for p in adapter.periods() if p.closed)
-            print(json.dumps({"status": "reused", "config": str(path), "ui_connected": False,
-                  "first_analysis": first_analysis(adapter, period.month, period.reports[0])}, ensure_ascii=False))
-            return
+            result = {"status": "reused", "config": str(path), "ui_connected": False,
+                      "first_analysis": first_analysis(adapter, period.month, period.reports[0])}
+            if emit_result:
+                print(json.dumps(result, ensure_ascii=False) if args.json else render_analysis(result["first_analysis"]))
+            return result
         link = args.url or input("Дайте ссылку на Google-таблицу: ").strip()
         spreadsheet_id(link)  # Validate before opening browser.
         store = TokenStore(args.profile)
@@ -352,19 +390,23 @@ def main(argv=None):
             if not 1 <= selection <= len(candidates):
                 raise ContractError("Выберите номер из списка отчётов")
             selected = candidates[selection - 1]
-            if selected["kind"]:
-                print("Предполагаемый вид: " + KINDS[selected["kind"]])
-                kind = input("Подтвердите вид (pnl / cashflow / balances), Enter — предложенный: ").strip() or selected["kind"]
-            else:
-                kind = input("Какой это отчёт: pnl — ОПиУ, cashflow — ДДС, balances — остатки? ").strip()
+            choices = ["cashflow", "pnl", "balances"]
+            print("Вид отчёта: 1 — движение денег, 2 — прибыль и убытки, 3 — остатки.")
+            suggested = str(choices.index(selected["kind"]) + 1) if selected["kind"] else None
+            answer = input("Номер вида отчёта" + (f" (Enter — {suggested})" if suggested else "") + ": ").strip() or suggested
+            if answer not in {"1", "2", "3"}:
+                raise ContractError("Выберите 1, 2 или 3")
+            kind = choices[int(answer) - 1]
             months = sorted(selected["months"])
             month = months[0] if len(months) == 1 else input("Какой месяц анализируем (YYYY-MM)? ").strip()
             currency = input("В какой валюте суммы (RUB / USD / …)? ").strip().upper()
+            units = input(f"Все строки — денежные суммы в единицах {currency}, без процентов, количеств и тысяч/миллионов? Напишите «да»: ").strip().lower() == "да"
             ready = input(f"Месяц {month} готов для анализа? Напишите «да»: ").strip().lower() == "да"
             result = save_profile(discovery, selected, month=month, kind=kind, currency=currency, ready=ready,
-                                  destination=destination, oauth_profile=args.profile, session=session)
-            print(json.dumps(result, ensure_ascii=False, indent=2))
-            print("Источник подключён. Настройки MCP подготовлены; подключение в интерфейсе ещё нужно проверить.")
+                                  destination=destination, oauth_profile=args.profile, session=session, units_confirmed=units)
+            if emit_result:
+                print(json.dumps(result, ensure_ascii=False, indent=2) if args.json else render_analysis(result["first_analysis"]))
+            return result
     except (ContractError, OSError, ValueError, IndexError, EOFError, StopIteration) as exc:
         message = str(exc) if isinstance(exc, ContractError) else "Подключение не завершено; проверьте выбор и доступность локальной папки"
         parser.exit(2, message + "\n")
