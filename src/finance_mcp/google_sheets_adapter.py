@@ -196,7 +196,7 @@ class GoogleSheetsAdapter:
 
     def _wide(self, rows, spec, width):
         """Explicit reviewed map of a wide report, no inferred accounting or totals."""
-        if set(spec) - {'kind', 'header_row', 'label_column', 'months', 'entries', 'strict_rows', 'grid', 'layout_signature'} or not {'kind', 'header_row', 'label_column', 'months', 'entries'} <= set(spec):
+        if set(spec) - {'kind', 'header_row', 'label_column', 'months', 'entries', 'strict_rows', 'grid', 'layout_signature', 'layout'} or not {'kind', 'header_row', 'label_column', 'months', 'entries'} <= set(spec):
             raise ContractError('Нужна полная карта wide')
         def cell(row, column):
             if type(row) is not int or type(column) is not int or row < 0 or not 0 <= column < width:
@@ -209,10 +209,42 @@ class GoogleSheetsAdapter:
             actual_layout = json.dumps(rows[:spec["header_row"]+1], ensure_ascii=False, default=str)
             if actual_layout != spec["layout_signature"]:
                 raise ContractError("Изменились заголовки или пояснения единиц; нужна повторная проверка карты")
+        layout = spec.get("layout")
+        excluded = []
+        if layout is not None:
+            if (set(layout) - {"label_columns", "ignored_columns", "excluded_rows", "metadata_signature"}
+                    or not {"label_columns", "ignored_columns", "excluded_rows"} <= set(layout)):
+                raise ContractError("Некорректная карта структуры отчёта")
+            label_columns = layout["label_columns"]
+            if not isinstance(label_columns, list) or not label_columns or len(set(label_columns)) != len(label_columns):
+                raise ContractError("Некорректные колонки названий")
+            for column in label_columns:
+                cell(spec["header_row"], column)
+            excluded = layout["excluded_rows"]
+            for item in excluded:
+                if set(item) != {"row", "values"} or type(item["row"]) is not int or item["row"] <= spec["header_row"]:
+                    raise ContractError("Некорректная строка примечания")
+                actual = rows[item["row"]] if item["row"] < len(rows) else []
+                if actual != item["values"]:
+                    raise ContractError("Изменились разделы или примечания; нужна повторная проверка карты")
+            for item in layout["ignored_columns"]:
+                if set(item) != {"column", "header", "role"} or item["role"] not in {"empty", "total", "metadata"}:
+                    raise ContractError("Некорректная дополнительная колонка")
+                if cell(spec["header_row"], item["column"]) != item["header"]:
+                    raise ContractError("Изменились дополнительные колонки; нужна повторная проверка карты")
+                if item["role"] == "empty" and any(cell(i, item["column"]) not in ("", None)
+                                                     for i in range(spec["header_row"] + 1, len(rows))):
+                    raise ContractError("В пустой колонке появились данные; нужна повторная проверка карты")
+            if "metadata_signature" in layout:
+                columns = [c["column"] for c in layout["ignored_columns"] if c["role"] == "metadata"]
+                values = [[i, [cell(i, c) for c in columns]]
+                          for i in range(spec["header_row"] + 1, len(rows))] if columns else []
+                if json.dumps(values, ensure_ascii=False, default=str) != layout["metadata_signature"]:
+                    raise ContractError("Изменились дополнительные сведения; нужна повторная проверка карты")
         if spec.get('strict_rows', False):
             if spec['strict_rows'] is not True:
                 raise ContractError('strict_rows должен быть true')
-            mapped = {entry['row'] for entry in spec['entries']}
+            mapped = {entry['row'] for entry in spec['entries']} | {entry['row'] for entry in excluded}
             actual = {i for i, row in enumerate(rows) if i > spec['header_row']
                       and any(value not in ('', None) for value in row)}
             if mapped != actual:
@@ -222,7 +254,15 @@ class GoogleSheetsAdapter:
             if set(mapping) != {'column', 'header'} or cell(spec['header_row'], mapping['column']) != mapping['header']:
                 raise ContractError('Изменился заголовок месяца; нужна повторная проверка карты')
             for entry in spec['entries']:
-                if set(entry) != {'row', 'label', 'code', 'dimension'} or cell(entry['row'], spec['label_column']) != entry['label']:
+                if set(entry) - {'row', 'label', 'code', 'dimension', 'label_values'} or not {'row', 'label', 'code', 'dimension'} <= set(entry):
+                    raise ContractError('Некорректная строка wide')
+                if 'label_values' in entry:
+                    if layout is None or len(entry['label_values']) != len(layout['label_columns']):
+                        raise ContractError('Нужна карта составного названия')
+                    actual = [cell(entry['row'], c) for c in layout['label_columns']]
+                    if actual != entry['label_values'] or ' / '.join(actual) != entry['label']:
+                        raise ContractError('Изменилась строка отчёта; нужна повторная проверка карты')
+                elif cell(entry['row'], spec['label_column']) != entry['label']:
                     raise ContractError('Изменилась строка отчёта; нужна повторная проверка карты')
                 key = (month, entry['row'])
                 if key in used: raise ContractError('Повторная строка в карте wide')

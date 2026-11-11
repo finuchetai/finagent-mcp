@@ -127,7 +127,7 @@ def detect_kind(title):
 
 
 def candidate(props, rows, height, width):
-    """Conservative supported format: column A labels, unique dated month columns."""
+    """Map a monthly report without editing the book or guessing unlabelled columns."""
     if re.search(r"план|бюджет|plan|budget|forecast|прогноз|отклонен|variance", props["title"], re.I):
         raise ContractError("Лист плана/прогноза не подключается как фактический отчёт")
     if not isinstance(rows, list) or any(not isinstance(row, list) or len(row) > width for row in rows):
@@ -135,19 +135,35 @@ def candidate(props, rows, height, width):
     if len(rows) >= height:
         raise ContractError("Лист заполнен до границы чтения; автоматическое подключение не поддерживается")
     headers = []
+    simple = {"статья", "статьи", "показатель", "наименование", "article", "metric"}
+    accounts = {"счёт", "счет", "account"}
     for index, row in enumerate(rows[:30]):
-        allow_serial = bool(row) and str(row[0]).strip().lower() in {"статья", "показатель", "article", "metric"}
+        first = str(row[0]).strip().lower() if row else ""
+        second = str(row[1]).strip().lower() if len(row) > 1 else ""
+        if first in accounts and second in {"показатель", "metric", "indicator"}:
+            labels = [0, 1]
+        elif first in simple:
+            labels = [0]
+        elif (row and (row[0] in ("", None) or isinstance(row[0], str))
+              and first not in {"дата", "date", "месяц", "month"}
+              and not re.fullmatch(r"(?:[0-9]{4}-[0-9]{2}(?:-[0-9]{2})?|[0-9]{2}[./][0-9]{2}[./][0-9]{4})", first)):
+            # Preserve earlier string-header layouts, including an empty label heading.
+            labels = [0]
+        else:
+            # A journal's date and month values are data, never monthly header rows.
+            continue
+        allow_serial = first in simple or first in accounts
         months = [(i, month_value(v, allow_serial=allow_serial), v) for i, v in enumerate(row)
-                  if i > 0 and month_value(v, allow_serial=allow_serial)]
+                  if i > labels[-1] and month_value(v, allow_serial=allow_serial)]
         if months:
-            headers.append((index, months))
+            headers.append((index, months, labels))
     if not headers:
         return None
     if len(headers) != 1:
-        raise ContractError("Несколько таблиц или строк месяцев на листе; нужна однозначная структура")
-    header, months = headers[0]
+        raise ContractError("Несколько месячных таблиц на листе: агенту нужно уточнить диапазон этой книги; другую книгу создавать не нужно")
+    header, months, label_columns = headers[0]
     if len({m for _, m, _ in months}) != len(months):
-        raise ContractError("Месяц повторяется: возможно, рядом план и факт; автоматическая карта небезопасна")
+        raise ContractError("Месяц повторяется: возможно, рядом план и факт; нужна проверка карты этой книги")
     if any(re.search(r"план|plan|budget|прогноз|forecast|variance|отклонен", str(v), re.I)
            for row in rows[:header + 1] for v in row):
         raise ContractError("Обнаружен план/прогноз: этот формат автоматически не подключается")
@@ -155,36 +171,80 @@ def candidate(props, rows, height, width):
     if re.search(r"(?i)(тыс[.]?|тысяч|млн|миллион|thousand|million)", unit_context):
         raise ContractError("Обнаружен масштаб в тысячах/миллионах; автоматически как единицы валюты не подключаем")
     columns = {c for c, _, _ in months}
-    entries, labels = [], set()
+    header_values = rows[header]
+    ignored = []
+    for column in range(width):
+        if column in columns or column in label_columns:
+            continue
+        value = header_values[column] if column < len(header_values) else ""
+        normalized = str(value or "").strip().lower()
+        if not normalized:
+            role = "empty"
+        elif re.fullmatch(r"(итого|всего|total|grand total)(?:\s+.*)?", normalized):
+            role = "total"
+        elif normalized in {"код", "code", "примечание", "примечания", "комментарий", "comment", "note"}:
+            role = "metadata"
+        else:
+            raise ContractError("Дополнительная колонка требует карты этой книги: " + col_name(column + 1))
+        ignored.append({"column": column, "header": value, "role": role})
+    entries, used_labels, excluded = [], set(), []
+    footer = False
+    sections = {"операционная деятельность", "инвестиционная деятельность",
+                "финансовая деятельность", "внутренние переводы"}
     for index in range(header + 1, len(rows)):
         row = rows[index]
         if not any(v not in ("", None) for v in row):
             continue
-        label = row[0] if row else ""
-        values = [row[c] if c < len(row) else "" for c in columns]
-        if not isinstance(label, str) or not label.strip():
-            raise ContractError("Найдена строка без названия; нельзя молча исключить её из отчёта")
-        if re.search(r"(?i)(%|процент|рентабельност|маржинальност|количеств|кол-во|(?:^|[^а-яa-z])(?:шт[.]?|чел[.]?|units|headcount)(?:$|[^а-яa-z]))", label):
+        parts = [row[c] if c < len(row) else "" for c in label_columns]
+        amounts = [row[c] if c < len(row) else "" for c in columns]
+        first = str(parts[0]).strip().lower()
+        if first in {"примечания", "примечание", "notes"}:
+            footer = True
+        is_section = first in sections and all(v in ("", None) for v in amounts)
+        if footer or is_section:
+            if any(v not in ("", None) for c, v in enumerate(row) if c not in label_columns):
+                raise ContractError("В заголовке раздела/примечании есть значения: агенту нужно проверить карту этой книги")
+            excluded.append({"row": index, "values": row})
+            continue
+        if any(not isinstance(part, str) or not part.strip() or part != part.strip() for part in parts):
+            raise ContractError("Найдена строка без полного названия; нужна проверка карты этой книги")
+        label = " / ".join(parts)
+        # Interest paid on loans is a money line; a percentage metric is not.
+        interest = bool(re.fullmatch(r"кредиты и займы\s*\(%\)", label, re.I))
+        if (not interest and re.search(r"(?i)(%|процент|рентабельност|маржинальност|количеств|кол-во|(?:^|[^а-яa-z])(?:шт[.]?|чел[.]?|units|headcount)(?:$|[^а-яa-z]))", label)):
             raise ContractError("В отчёте есть проценты или количества; нельзя выдавать их как денежные суммы")
-        if label != label.strip() or label in labels:
-            raise ContractError("Названия строк должны быть уникальны и без крайних пробелов")
-        for i, value in enumerate(row):
-            if i and i not in columns and value not in ("", None):
-                raise ContractError("Кроме месяцев есть дополнительные колонки; формат требует уточнения")
-        for value in values:
+        if tuple(parts) in used_labels:
+            raise ContractError("Названия строк должны быть уникальны; агенту нужно уточнить карту этой книги")
+        for ignored_column in ignored:
+            c = ignored_column["column"]
+            if ignored_column["role"] == "empty" and c < len(row) and row[c] not in ("", None):
+                raise ContractError("В колонке без заголовка есть данные; агенту нужно уточнить её смысл в этой книге")
+        for value in amounts:
             if value not in ("", None):
-                money(value, ".")  # Reject formula errors, text amounts and booleans.
-        labels.add(label)
-        entries.append({"row": index, "label": label, "code": f"article_{len(entries)+1:05d}",
-                        "dimension": "source_row"})
-    if not entries or not any(row[c] not in ("", None)
-                              for row in rows[header+1:] for c in columns if c < len(row)):
+                money(value, ".")
+        used_labels.add(tuple(parts))
+        entry = {"row": index, "label": label, "code": f"article_{len(entries)+1:05d}", "dimension": "source_row"}
+        if len(label_columns) > 1:
+            entry["label_values"] = parts
+        entries.append(entry)
+    if not entries or not any(rows[e["row"]][c] not in ("", None)
+                              for e in entries for c in columns if c < len(rows[e["row"]])):
         raise ContractError("Нет непустых денежных значений для первого анализа")
+    metadata_columns = [c["column"] for c in ignored if c["role"] == "metadata"]
+    metadata_values = [[i, [row[c] if c < len(row) else "" for c in metadata_columns]]
+                       for i, row in enumerate(rows) if i > header] if metadata_columns else []
+    auxiliary_context = " ".join(str(value) for _, values in metadata_values for value in values)
+    auxiliary_context += " " + " ".join(str(v) for item in excluded for v in item["values"])
+    if re.search(r"(?i)(тыс[.]?|тысяч|млн|миллион|thousand|million)", auxiliary_context):
+        raise ContractError("В примечаниях указан масштаб тысяч/миллионов; агенту нужно проверить единицы этой книги")
+    layout = {"label_columns": label_columns, "ignored_columns": ignored, "excluded_rows": excluded,
+              "metadata_signature": json.dumps(metadata_values, ensure_ascii=False, default=str)}
     return {"sheet_id": props["sheetId"], "title": props["title"],
             "range": "'" + props["title"].replace("'", "''") + f"'!A1:{col_name(width)}{height}",
             "kind": detect_kind(props["title"]), "header_row": header,
             "grid": {"sheet_id": props["sheetId"], "title": props["title"], "rows": height, "columns": width},
             "layout_signature": json.dumps(rows[:header+1], ensure_ascii=False, default=str),
+            "layout": layout,
             "months": {m: {"column": c, "header": int(v) if isinstance(v, Decimal) else v} for c, m, v in months},
             "entries": entries}
 
@@ -301,16 +361,20 @@ def save_profile(discovery, selected, *, month, kind, currency, ready, destinati
         config["tables"]["rows"] = {"range": selected["range"], "wide": {
             "kind": kind, "header_row": selected["header_row"], "label_column": 0, "strict_rows": True,
             "grid": selected["grid"], "layout_signature": selected["layout_signature"],
+            "layout": selected["layout"],
             "months": {month: selected["months"][month]}, "entries": selected["entries"]}}
         (staging / "passport.md").write_text(
             "# Финансовые данные владельца\nОдна согласованная Google-книга; только чтение.\n"
             f"Отчёт: {KINDS[kind]}; период: {month}; валюта: {currency}.\n"
-            "Все распознанные строки выбранного листа, без изменения знаков и сумм.\n"
+            "Денежные строки выбранного листа, без изменения знаков и сумм.\n"
             "Полнота/методика неизвестны; дата состояния учёта неизвестна.\n"
             "source_row — исходная строка, не признак слагаемого; итоги и детали не суммировать.\n"
             "Коды сохранены в карте; изменение названий/позиций требует новой проверки.\n",
             encoding="utf-8")
         with (staging / "passport.md").open("a", encoding="utf-8") as f:
+            excluded_columns = [col_name(c["column"] + 1) + " (" + str(c["header"] or "пустая") + ")" for c in selected["layout"]["ignored_columns"]]
+            f.write("\nОхват: только выбранный месяц; дополнительные колонки не входят: " + ", ".join(excluded_columns) + ".\n")
+            f.write("Заголовки разделов и примечания не являются денежными строками; их состав контролируется картой.\n")
             f.write(f"\nВладелец подтвердил: все строки — денежные суммы в единицах {currency}, без процентов, количеств и масштаба.\n")
         (staging / "config.json").write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
         # Real adapter performs a fresh read and validates saved metadata; compare ALL source rows.
@@ -381,9 +445,12 @@ def main(argv=None, *, emit_result=True):
             discovery = discover(link, session)
             candidates = discovery["candidates"]
             if not candidates:
-                raise ContractError("Не найден поддержанный отчёт: нужны статьи в первой колонке и месяцы с годом в заголовках")
+                raise ContractError("Автоматическая карта этой книги не подготовлена. " + "; ".join(x["title"] + ": " + x["reason"] for x in discovery["unsupported"]) + ". Сохраните диагностику для агента; другую книгу или копию создавать не нужно")
             for i, c in enumerate(candidates, 1):
-                print(f"{i}. {c['title']}: {len(c['entries'])} строк; месяцы {', '.join(c['months'])}")
+                print(f"{i}. {c['title']}: {len(c['entries'])} денежных строк; месяцы {', '.join(c['months'])}")
+                ignored = [col_name(x["column"] + 1) + " (" + str(x["header"] or "пустая") + ")" for x in c["layout"]["ignored_columns"] if x["role"] != "empty"]
+                if ignored:
+                    print("   В месячный отчёт не входят колонки: " + ", ".join(ignored))
             if discovery["unsupported"]:
                 print("Другие листы не подключаются: " + "; ".join(x["title"] for x in discovery["unsupported"]))
             selection = 1 if len(candidates) == 1 else int(input("Номер отчёта: "))

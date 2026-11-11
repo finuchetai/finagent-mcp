@@ -9,7 +9,7 @@ if out.name != "finagent-finance-setup" or out.exists() or p==out or p in out.pa
     parser.error("Choose a new finagent-finance-setup directory outside the source checkout")
 out.mkdir(parents=True)
 manifest={'$schema':'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json',
-'name':'finagent-finance-setup','version':'0.6.0','description':'Поэтапная самостоятельная настройка финансового MCP для браузера и настольного приложения.',
+'name':'finagent-finance-setup','version':'0.6.1','description':'Поэтапная самостоятельная настройка финансового MCP для браузера и настольного приложения.',
 'author':{'name':'Самойлова Татьяна'},'license':'MIT','homepage':'https://finuchetai.ru/',
 'repository':'https://github.com/finuchetai/finagent-mcp','extensions':{'com.openai':{
 'onboardingSkill':'./skills/finance-setup/SKILL.md','interface':{
@@ -71,6 +71,9 @@ published totals and detail, or treat missing values as zero. Dashboard creation
 uses the host assistant's capabilities, not an MCP dashboard tool. Preserve sources.
 When resuming setup, reuse the chosen client and completed steps.
 
+For Google Sheets, request the existing spreadsheet containing financial data. Never require
+a test book, a copy, changed cells or a redesigned report. Reuse the supplied link. If automatic
+mapping fails, inspect that book and its mapping; do not ask for a replacement book.
 For Google Sheets, read references/google-sheets.md and google-app-registration.md.
 The normal customer flow is Google browser consent and a spreadsheet link; never ask
 customers to create service accounts, Cloud projects or JSON keys by default. The author
