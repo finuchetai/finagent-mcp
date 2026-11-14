@@ -1,6 +1,6 @@
 # Финагент MCP — финансовые отчёты для AI-ассистента
 
-[English](README.en.md) · [Скачать 0.7.0rc2](https://github.com/finuchetai/finagent-mcp/releases/tag/v0.7.0rc2) · [Проверки](https://github.com/finuchetai/finagent-mcp/actions/workflows/tests.yml)
+[English](README.en.md) · [Скачать 0.7.0rc2](https://github.com/finuchetai/finagent-mcp/releases/tag/v0.7.0rc2) · [PyPI](https://pypi.org/project/open-finance-mcp/0.7.0rc2/) · [Проверки](https://github.com/finuchetai/finagent-mcp/actions/workflows/tests.yml)
 
 <!-- mcp-name: io.github.finuchetai/finagent-mcp -->
 
@@ -83,6 +83,18 @@ CSV/XLSX/PostgreSQL и Google Sheets, проверка среды и реест�
 чистой прибыли не требует выдумывать её или дополнять исходник нулями.
 
 ## Быстрый запуск
+
+Пакет опубликован в PyPI. Для установки без клонирования репозитория:
+
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install 'open-finance-mcp[files,postgres]==0.7.0rc2'
+.venv/bin/python -m finance_mcp.diagnostics stdio --timeout 15
+```
+
+Без конфигурации запускается вымышленное демо. На Windows используйте `python`
+и `.venv\Scripts\python.exe`. Для работы агента с картой источника см.
+[поэтапную настройку](docs/guided-setup.md). Установка из исходников и запуск тестов:
 
 Нужен Python 3.11+ с venv/pip и доступ к индексу Python-пакетов при первой установке.
 Скопируйте **только этот каталог** в отдельное место. Внутри копии:
@@ -233,5 +245,8 @@ Live-приёмка сервисного аккаунта остаётся от�
 
 ## Каталоги MCP
 
-GitHub Release доступен публично. Пакет в PyPI и запись в официальном MCP Registry
-пока не опубликованы. [Подготовка регистрации](docs/registry-publication.md).
+GitHub Release и [Python-пакет 0.7.0rc2](https://pypi.org/project/open-finance-mcp/0.7.0rc2/)
+доступны публично. В официальном [MCP Registry](https://registry.modelcontextprotocol.io/)
+зарегистрирован `io.github.finuchetai/finagent-mcp`, версия 0.7.0rc2, статус active.
+Запись запускает демо через `uvx`; реальные источники требуют отдельной настройки.
+[Результат и порядок публикации](docs/registry-publication.md).

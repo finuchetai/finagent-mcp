@@ -1,8 +1,28 @@
-# Подготовка официального MCP Registry
+# Публикация в PyPI и официальном MCP Registry
 
-Статус на 14.11.2026: GitHub и Release публичны. `server.json` — подготовленный
-проект записи, не подтверждение регистрации. PyPI и MCP Registry не опубликованы.
+Статус на 14.11.2026: GitHub, Release, PyPI и запись MCP Registry публичны.
+Пакет: [open-finance-mcp 0.7.0rc2](https://pypi.org/project/open-finance-mcp/0.7.0rc2/).
+Registry: `io.github.finuchetai/finagent-mcp`, версия 0.7.0rc2, статус active.
 Проверка Google не требуется для демо, CSV/XLSX или PostgreSQL.
+
+## Подтверждение публикации
+
+- [PyPI workflow 43611327475](https://github.com/finuchetai/finagent-mcp/actions/runs/43611327475):
+  сборка, тесты и загрузка успешны; исходный коммит пакета `467914f`.
+- SHA-256 обоих файлов в PyPI совпали с артефактами этого workflow.
+- Пакет установлен из официального PyPI в новую venv: pip check и
+  environment --packages успешны; --check — 3 периода, 6 отчётов, 24 строки;
+  stdio — 6 инструментов; 7 тестов демо успешны.
+- [Registry workflow 43612030228](https://github.com/finuchetai/finagent-mcp/actions/runs/43612030228):
+  официальный mcp-publisher v1.8.9, проверка SHA-256 и Sigstore-подписи,
+  validate и publish успешны. Авторизация — GitHub OIDC, без PAT владельца.
+- [Публичный Registry API](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.finuchetai%2Ffinagent-mcp)
+  прочитан без авторизации: запись active, isLatest=true, publishedAt=2026-11-14T15:47:32Z.
+- Через uvx из PyPI получен настоящий финансовый MCP-ответ демо:
+  ОПиУ 2026-08, 5 строк, 6 инструментов. Это не приёмка клиентского источника.
+
+Описания внутри ранее собранных архивов отражают момент их подготовки;
+текущий статус публикации указан в этом документе и README репозитория.
 
 ## Выбранный путь
 
@@ -16,14 +36,14 @@
 публичного HTTPS MCP endpoint у этого проекта нет; фиктивный remote не указываем.
 
 Каталог хранит метаданные, а не сам пакет. PyPI проверяется до регистрации:
-на 14.11.2026 запрос `https://pypi.org/pypi/open-finance-mcp/json` вернул 404.
-Это не резервирование имени и не доказательство прав на него; доступность
-нужно проверить заново непосредственно перед публикацией.
+Перед первой публикацией 14.11.2026 запрос
+`https://pypi.org/pypi/open-finance-mcp/json` вернул 404. После успешной загрузки
+endpoint конкретной версии вернул 200 с двумя файлами — wheel и sdist.
 
 ## Что подготовлено
 
 - Русский и английский README с назначением, установкой, примерами и ограничениями.
-- Описание будущего PyPI-пакета берётся из английского README; ссылки ведут
+- Описание PyPI-пакета берётся из английского README; ссылки ведут
   на публичную документацию GitHub.
 - В README добавлен маркер `mcp-name: io.github.finuchetai/finagent-mcp`:
   Registry сверяет его с описанием пакета в PyPI.
@@ -60,6 +80,9 @@ python3 -m venv .venv
 `server.json` проверяется по указанной в нём официальной JSON Schema.
 Структурная проверка не подтверждает наличие пакета или права публикации.
 После появления пакета использовать проверку `mcp-publisher validate`.
+Для следующих версий подготовлен `.github/workflows/publish-mcp.yml`: ручной
+запуск из main, проверка PyPI и маркера владения, проверка подписи publisher,
+validate; при publish=true — отдельный job с GitHub OIDC и публикацией.
 
 ## Что нужно для реальной публикации
 

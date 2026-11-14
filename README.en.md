@@ -1,12 +1,12 @@
 # Finagent MCP — financial reports for AI assistants
 
-[Русский](https://github.com/finuchetai/finagent-mcp/blob/main/README.md) · [Download 0.7.0rc2](https://github.com/finuchetai/finagent-mcp/releases/tag/v0.7.0rc2) · [CI](https://github.com/finuchetai/finagent-mcp/actions/workflows/tests.yml) · [MIT license](https://github.com/finuchetai/finagent-mcp/blob/main/LICENSE)
+[Русский](https://github.com/finuchetai/finagent-mcp/blob/main/README.md) · [Download 0.7.0rc2](https://github.com/finuchetai/finagent-mcp/releases/tag/v0.7.0rc2) · [PyPI](https://pypi.org/project/open-finance-mcp/0.7.0rc2/) · [CI](https://github.com/finuchetai/finagent-mcp/actions/workflows/tests.yml) · [MIT license](https://github.com/finuchetai/finagent-mcp/blob/main/LICENSE)
 
 <!-- mcp-name: io.github.finuchetai/finagent-mcp -->
 
 Read prepared financial reports with your AI assistant through the Model Context Protocol (MCP). Ask about profit and loss, cash flow, and account balances. Finagent exposes report rows, methodology, available months, and notes; the assistant explains the data within those limits.
 
-**0.7.0rc2 is a public prerelease.** The repository and release downloads are available. The Python distribution name is `open-finance-mcp`; the server module is `finance_mcp.server`. PyPI and the official MCP Registry listing are not published yet.
+**0.7.0rc2 is a public prerelease.** The repository, release downloads, and Python package on PyPI are available. The Python distribution name is `open-finance-mcp`; the server module is `finance_mcp.server`. The official [MCP Registry](https://registry.modelcontextprotocol.io/) lists **`io.github.finuchetai/finagent-mcp`**, version `0.7.0rc2`, with active status. The Registry entry starts the synthetic demo; client sources require local setup.
 
 ## Sources and requirements
 
@@ -21,7 +21,21 @@ PostgreSQL support does not imply MySQL or Microsoft SQL Server support. This is
 
 Your agent can inspect an approved source, prepare the mapping, run checks, and help configure the MCP client. Start with [AGENTS.md](https://github.com/finuchetai/finagent-mcp/blob/main/AGENTS.md) and the [guided setup](https://github.com/finuchetai/finagent-mcp/blob/main/docs/guided-setup.md) (currently in Russian). The data owner confirms the meaning of the reports, monetary units, methodology, and whether a month is ready for analysis. The agent must reconcile all mapped rows; structural validation alone does not establish that amounts are correct.
 
-## Try the demo
+## Install from PyPI
+
+Create an isolated environment and install the exact prerelease:
+
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install 'open-finance-mcp[files,postgres]==0.7.0rc2'
+.venv/bin/python -m finance_mcp.diagnostics stdio --timeout 15
+```
+
+The source extras enable Excel/CSV and PostgreSQL; no Google credentials are required for these sources or the demo. On Windows, use `python` and `.venv\Scripts\python.exe`. Use the absolute interpreter path and `-m finance_mcp.server` in your compatible MCP client. Without a source configuration, reports contain synthetic demo data.
+
+With `uv` installed, the Registry runtime can also be checked using `uvx --from open-finance-mcp==0.7.0rc2 open-finance-mcp --check`. Use a persistent venv and source-specific dependencies for client data.
+
+## Run the demo from source
 
 Requirements: Python 3.11+, venv/pip, and network access for the initial dependency installation. Run these commands in a separate checkout:
 
