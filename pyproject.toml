@@ -5,10 +5,11 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "open-finance-mcp"
 version = "0.7.0rc2"
-description = "Standalone read-only financial MCP adapter demo"
+description = "Read-only financial reports for AI assistants: demo, Excel/CSV, PostgreSQL and Google Sheets"
+keywords = ["mcp", "mcp-server", "finance", "financial-analysis", "excel", "csv", "postgresql"]
 requires-python = ">=3.11"
 dependencies = ["mcp==2.2.0"]
-readme = "README.md"
+readme = "README.en.md"
 authors = [{name = "Самойлова Татьяна"}]
 license = {file = "LICENSE"}
 

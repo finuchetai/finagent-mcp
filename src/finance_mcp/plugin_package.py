@@ -15,8 +15,8 @@ from .remote import https_url
 def public_source_files(root: Path):
     """Package only source roots; never include local runtime/config/export files."""
     directories = {"src", "tests", "docs", "examples", "deploy", "scripts", ".github"}
-    files = {"README.md", "AGENTS.md", "LICENSE", "CHANGELOG.md", "CONTRIBUTING.md",
-             "SECURITY.md", "pyproject.toml", "preflight.py", ".gitignore", ".dockerignore"}
+    files = {"README.md", "README.en.md", "AGENTS.md", "LICENSE", "CHANGELOG.md", "CONTRIBUTING.md",
+             "SECURITY.md", "pyproject.toml", "preflight.py", "MANIFEST.in", "server.json", ".gitignore", ".dockerignore"}
     for path in sorted(root.rglob("*")):
         if not path.is_file() or path.is_symlink():
             continue

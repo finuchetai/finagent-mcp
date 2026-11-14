@@ -1,0 +1,14 @@
+include README.md README.en.md AGENTS.md CHANGELOG.md CONTRIBUTING.md SECURITY.md LICENSE
+include preflight.py pyproject.toml MANIFEST.in server.json .gitignore .dockerignore
+graft docs
+graft examples
+graft scripts
+graft tests
+graft deploy
+graft .github
+global-exclude *.py[cod]
+global-exclude .env remote.env *.local.env
+global-exclude *token*.json *credentials*.json *client_secret*.json google-oauth-client.json
+prune dist
+prune build
+prune .venv

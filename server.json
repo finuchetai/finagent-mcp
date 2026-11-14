@@ -1,0 +1,33 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.finuchetai/finagent-mcp",
+  "title": "Finagent — Financial Reports",
+  "description": "Read-only profit, cash-flow and balance reports. Demo included; client sources need local setup.",
+  "version": "0.7.0rc2",
+  "repository": {
+    "url": "https://github.com/finuchetai/finagent-mcp",
+    "source": "github",
+    "id": "1452590720"
+  },
+  "websiteUrl": "https://github.com/finuchetai/finagent-mcp/blob/main/README.en.md",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "open-finance-mcp",
+      "version": "0.7.0rc2",
+      "runtimeHint": "uvx",
+      "transport": { "type": "stdio" }
+    }
+  ],
+  "_meta": {
+    "io.modelcontextprotocol.registry/publisher-provided": {
+      "finagent": {
+        "releaseStage": "prerelease",
+        "defaultData": "synthetic demo",
+        "clientSources": "Excel/CSV and PostgreSQL require mapped, reconciled local configuration and source extras.",
+        "googleStatus": "Data-access verification pending as of 2026-11-14; Google setup is separate."
+      }
+    }
+  }
+}
